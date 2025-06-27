@@ -33,5 +33,8 @@ chrome.runtime.onMessage.addListener((msg, _, sendResponse) => {
     const text = getVisibleText()
     const count = countWords(text)
     sendResponse({ count })
+  } else if (msg.type === 'GET_SELECTED_TEXT') {
+    const text = window.getSelection()?.toString() ?? ''
+    sendResponse({ text })
   }
 })

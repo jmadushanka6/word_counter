@@ -4,22 +4,48 @@ function IndexPopup() {
   const [wordCount, setWordCount] = useState(0)
   const [wpm, setWpm] = useState(200)
 
+  function countWords(text: string) {
+    const cleaned = text.replace(/\s+/g, " ").trim()
+    return cleaned === "" ? 0 : cleaned.split(" ").length
+  }
+
   useEffect(() => {
-    chrome.storage.local.get(["wpm"], (res) => {
+    chrome.storage.local.get(["selectedText", "wpm"], (res) => {
       if (res.wpm) {
         setWpm(res.wpm)
       }
-    })
-
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const tabId = tabs[0]?.id
-      if (tabId !== undefined) {
-        chrome.tabs.sendMessage(tabId, { type: "COUNT_WORDS" }, (res) => {
-          if (res && typeof res.count === "number") {
-            setWordCount(res.count)
-          }
-        })
+      const storedText = res.selectedText as string | undefined
+      if (storedText && storedText.trim() !== "") {
+        setWordCount(countWords(storedText))
+        chrome.storage.local.remove("selectedText")
+        return
       }
+
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tabId = tabs[0]?.id
+        if (tabId !== undefined) {
+          chrome.tabs.sendMessage(
+            tabId,
+            { type: "GET_SELECTED_TEXT" },
+            (selRes) => {
+              const selection = selRes?.text as string | undefined
+              if (selection && selection.trim() !== "") {
+                setWordCount(countWords(selection))
+              } else {
+                chrome.tabs.sendMessage(
+                  tabId,
+                  { type: "COUNT_WORDS" },
+                  (res2) => {
+                    if (res2 && typeof res2.count === "number") {
+                      setWordCount(res2.count)
+                    }
+                  }
+                )
+              }
+            }
+          )
+        }
+      })
     })
   }, [])
 
