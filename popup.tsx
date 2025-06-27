@@ -1,12 +1,31 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import syllable from "syllable"
 
 function IndexPopup() {
-  const [wordCount, setWordCount] = useState(0)
+  const [text, setText] = useState("")
   const [wpm, setWpm] = useState(200)
 
-  function countWords(text: string) {
-    const cleaned = text.replace(/\s+/g, " ").trim()
+  function countWords(content: string) {
+    const cleaned = content.replace(/\s+/g, " ").trim()
     return cleaned === "" ? 0 : cleaned.split(" ").length
+  }
+
+  function countSentences(content: string) {
+    return content.split(/[.!?]+/).filter(Boolean).length
+  }
+
+  function readingEase(content: string) {
+    const words = countWords(content)
+    const sentences = countSentences(content)
+    const syllables = content
+      .split(/\s+/)
+      .reduce((acc, w) => acc + syllable(w), 0)
+    if (words === 0 || sentences === 0) {
+      return 0
+    }
+    const score =
+      206.835 - 1.015 * (words / sentences) - 84.6 * (syllables / words)
+    return Math.round(score)
   }
 
   useEffect(() => {
@@ -16,7 +35,7 @@ function IndexPopup() {
       }
       const storedText = res.selectedText as string | undefined
       if (storedText && storedText.trim() !== "") {
-        setWordCount(countWords(storedText))
+        setText(storedText)
         chrome.storage.local.remove("selectedText")
         return
       }
@@ -30,14 +49,14 @@ function IndexPopup() {
             (selRes) => {
               const selection = selRes?.text as string | undefined
               if (selection && selection.trim() !== "") {
-                setWordCount(countWords(selection))
+                setText(selection)
               } else {
                 chrome.tabs.sendMessage(
                   tabId,
-                  { type: "COUNT_WORDS" },
+                  { type: "GET_PAGE_TEXT" },
                   (res2) => {
-                    if (res2 && typeof res2.count === "number") {
-                      setWordCount(res2.count)
+                    if (res2 && typeof res2.text === "string") {
+                      setText(res2.text)
                     }
                   }
                 )
@@ -53,9 +72,17 @@ function IndexPopup() {
     chrome.storage.local.set({ wpm })
   }, [wpm])
 
+  const wordCount = useMemo(() => countWords(text), [text])
   const totalSeconds = wpm > 0 ? Math.ceil((wordCount / wpm) * 60) : 0
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
+
+  const difficultyScore = useMemo(() => readingEase(text), [text])
+  const difficultyLabel = useMemo(() => {
+    if (difficultyScore >= 80) return "easy"
+    if (difficultyScore >= 60) return "medium"
+    return "hard"
+  }, [difficultyScore])
 
   return (
     <div
@@ -89,6 +116,9 @@ function IndexPopup() {
       </div>
       <div>
         <strong>Reading time:</strong> {minutes} min {seconds} sec
+      </div>
+      <div>
+        <strong>Difficulty:</strong> {difficultyLabel} ({difficultyScore})
       </div>
     </div>
   )
