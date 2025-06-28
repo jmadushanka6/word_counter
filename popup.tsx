@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import syllable from "syllable"
+import { syllable } from "syllable"
 
 function IndexPopup() {
   const [text, setText] = useState("")
