@@ -1,5 +1,10 @@
 This is a [Plasmo extension](https://docs.plasmo.com/) project bootstrapped with [`plasmo init`](https://www.npmjs.com/package/plasmo).
 
+## Features
+
+- Displays a quick-read badge showing estimated reading time on each page.
+- Click the extension icon for full statistics including word count and reading difficulty.
+
 ## Getting Started
 
 First, run the development server:
